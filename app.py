@@ -2,16 +2,17 @@ import streamlit as st
 import pandas as pd
 import datetime
 import plotly.express as px
+import openai
 from streamlit_autorefresh import st_autorefresh
 
-# ── Page & auto-refresh ─────────────────────────────────────────────────────────
+# ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="Z&E Modern Dashboard",
+    page_title="Z&E AI Dashboard",
     layout="wide",
-    page_icon="📈"
+    page_icon="🤖"
 )
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
-st.title("📊 Z&E Dashboard (Modern)")
+st.title("📊 Z&E Dashboard with AI Suggestions")
 st.markdown("**Last refresh:** " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # ── Load data ───────────────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ firms   = pd.read_csv("firms_complex.csv")
 monthly = pd.read_csv("monthly_summary.csv")
 daily   = pd.read_csv("pos_daily.csv", parse_dates=["Date"])
 
-# ── Sidebar: navigation & filter ────────────────────────────────────────────────
+# ── Sidebar: navigation & firm filter ────────────────────────────────────────────
 st.sidebar.title("Navigation")
 menu     = st.sidebar.radio("Go to", ["🏠 Overview", "📈 Monthly Trend", "🛒 Daily Sales", "💡 Recommendations"])
 st.sidebar.markdown("---")
@@ -27,7 +28,7 @@ st.sidebar.subheader("Filter by Firm")
 ids      = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Firm ID", ["All"] + ids)
 
-# ── Filter data for selection ───────────────────────────────────────────────────
+# ── Prepare filtered data ────────────────────────────────────────────────────────
 monthly_f = monthly.copy()
 daily_f   = daily.copy()
 if selected != "All":
@@ -38,11 +39,11 @@ if selected != "All":
 # ── 🏠 Overview ─────────────────────────────────────────────────────────────────
 if menu == "🏠 Overview":
     st.header("🏠 Overview")
-    ytd       = (daily_f["Revenue (KM)"].sum() if selected!="All" else daily["Revenue (KM)"].sum())
-    avg_month = (monthly_f["Monthly Revenue"].mean() if selected!="All" else monthly["Monthly Revenue"].mean())
-    col1, col2 = st.columns(2)
-    col1.metric("YTD Revenue (KM)", f"{ytd:,.2f}")
-    col2.metric("Avg Monthly Rev (KM)", f"{avg_month:,.2f}")
+    total_ytd    = daily_f["Revenue (KM)"].sum() if selected!="All" else daily["Revenue (KM)"].sum()
+    avg_monthly  = monthly_f["Monthly Revenue"].mean() if selected!="All" else monthly["Monthly Revenue"].mean()
+    col1, col2   = st.columns(2)
+    col1.metric("YTD Revenue (KM)", f"{total_ytd:,.2f}")
+    col2.metric("Avg Monthly Rev (KM)", f"{avg_monthly:,.2f}")
     st.subheader("📁 Registered Firms")
     st.dataframe(firms, use_container_width=True)
 
@@ -72,60 +73,44 @@ elif menu == "🛒 Daily Sales":
 
 # ── 💡 Recommendations ─────────────────────────────────────────────────────────
 else:
-    st.header("💡 Detailed Business Recommendations")
+    st.header("💡 AI-Powered Recommendations")
     if selected == "All":
-        st.info("Select a single firm to see tailored recommendations.")
+        st.info("Select a single firm to get AI suggestions.")
     elif daily_f.empty:
-        st.warning("No sales data available for this firm to generate recommendations.")
+        st.warning("No sales data available for this firm.")
     else:
-        # performance comparison
+        firm = firms[firms["Firm ID"] == int(selected)].iloc[0]
         latest_date = daily_f["Date"].max()
-        yest = (
-            daily_f[daily_f["Date"] == latest_date]
-            .groupby("Product")["Revenue (KM)"]
-            .sum().reset_index(name="Yest Rev")
-        )
-        avg_p = (
-            daily_f.groupby("Product")["Revenue (KM)"]
-            .mean().reset_index(name="Avg Rev")
-        )
-        perf = yest.merge(avg_p, on="Product")
-        perf["Delta"] = (perf["Yest Rev"] - perf["Avg Rev"]).round(2)
-        worst = perf.nsmallest(1, "Delta").iloc[0]
-        best  = perf.nlargest(1,  "Delta").iloc[0]
+        today_rev   = daily_f[daily_f["Date"] == latest_date]["Revenue (KM)"].sum()
+        avg_rev     = daily_f.groupby("Date")["Revenue (KM)"].sum().mean()
+        prompt = f"""
+You are an expert small-business consultant.
+Company: {firm['Firm Name']}
+Industry: {firm['Industry']}
+Bank package: {firm['Bank']} / {firm['Package']}
+Account balance: {firm['Account Balance (KM)']} KM
 
-        firm_name = firms.loc[firms["Firm ID"] == int(selected), "Firm Name"].iloc[0]
-        industry  = firms.loc[firms["Firm ID"] == int(selected), "Industry"].iloc[0]
+On {latest_date.date()}, total revenue was {today_rev:.2f} KM.
+Historical average daily revenue is {avg_rev:.2f} KM.
 
-        st.subheader(f"Performance for **{firm_name}** on {latest_date.date()}")
-        st.markdown(f"- **Worst performer:** {worst['Product']} (Δ {worst['Delta']:.2f} KM vs avg)")
-        st.markdown(f"- **Best performer:** {best['Product']} (Δ +{best['Delta']:.2f} KM vs avg)")
+Please provide 4-6 actionable bullet-point recommendations to:
+- Increase revenue (pricing, promotions, product mix)
+- Reduce costs (supplier, bank fees, operations)
+- Improve customer retention (loyalty, upsells)
 
-        # industry-specific recommendations
-        st.markdown(f"### Industry: {industry}")
-        if industry == "Cafe":
-            st.markdown("""
-- Launch a **‘Happy Hour’** for **%s** between 3–5 PM to boost off-peak sales.
-- Bundle **%s** with pastries to increase ticket size by 10%%.
-- Implement a **loyalty card**: 5th drink free to drive repeat visits.
-- Negotiate bulk coffee bean orders to reduce COGS by 8%%.
-""" % (worst["Product"], best["Product"]))
-        elif industry == "Retail":
-            st.markdown("""
-- Bundle slow-moving **%s** with a best-seller at a 5%% discount.
-- Feature **%s** prominently in window displays and online ads.
-- Introduce a **points-based loyalty program** for repeat purchases.
-- Renegotiate supplier contracts to lower staple costs by 6%%.
-""" % (worst["Product"], best["Product"]))
-        elif industry == "Salon":
-            st.markdown("""
-- Offer a **15%% weekday discount** on **%s** to fill appointment gaps.
-- Promote premium **%s** packages (e.g., haircut + styling) at a 10%% premium.
-- Launch a **referral program**: refer a friend for a free manicure.
-- Source quality hair-color supplies to cut costs by 7%%.
-""" % (worst["Product"], best["Product"]))
-        else:
-            st.markdown("""
-- Regularly review product performance and adjust prices ±5%%.
-- Optimize inventory by focusing on top 20%% of SKUs.
-""")
+Respond concisely with each action on its own line.
+""".strip()
+
+        openai.api_key = st.secrets["OPENAI_API_KEY"]
+        try:
+            resp = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role":"system","content":"You are a helpful business advisor."},
+                          {"role":"user","content":prompt}],
+                temperature=0.7,
+                max_tokens=300
+            )
+            suggestions = resp.choices[0].message.content
+            st.markdown(suggestions)
+        except Exception as e:
+            st.error(f"AI call failed: {e}")

@@ -1,4 +1,4 @@
-Firm ID,Firm Name,Industry
-101,Espresso,Cafe
-102,Mala Market,Retail
-103,Z&E Cut,Salon
+Firm ID,Firm Name,Industry,Bank,Package,Account Balance (KM)
+101,Espresso,Cafe,Raiffeisen,Biznis Start,12000
+102,Mala Market,Retail,Addiko,Mini,5000
+103,Z&E Cut,Salon,UniCredit,Standard,3000
