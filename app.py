@@ -2,13 +2,14 @@ import streamlit as st
 import pandas as pd
 import datetime
 from streamlit_autorefresh import st_autorefresh
+import openai
 
 # ── Auto-refresh every 60 seconds ───────────────────────────────────────────────
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 
 # ── Page config ─────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Z&E Auto-Suggestions Dashboard", layout="wide")
-st.title("📊 Z&E Dashboard with Automatic Suggestions")
+st.set_page_config(page_title="Z&E AI Dashboard", layout="wide")
+st.title("📊 Z&E Dashboard with AI Recommendations")
 st.caption(f"Last refresh: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
 
 # ── Load base tables ────────────────────────────────────────────────────────────
@@ -20,7 +21,7 @@ st.sidebar.subheader("Filter by Firm")
 firm_ids = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Choose a Firm ID", ["All"] + firm_ids)
 
-# ── Show firms table ────────────────────────────────────────────────────────────
+# ── Display firms ───────────────────────────────────────────────────────────────
 st.subheader("📁 Registered Firms")
 if selected == "All":
     st.dataframe(firms, use_container_width=True)
@@ -40,7 +41,7 @@ avg = (
 )
 combined = (
     daily.merge(avg, on="Firm ID")
-         .merge(firms[["Firm ID", "Firm Name"]], on="Firm ID")
+         .merge(firms[["Firm ID", "Firm Name", "Bank", "Package", "Account Balance (KM)"]], on="Firm ID")
 )
 combined["Suggestion"] = combined.apply(
     lambda row: "Below avg – consider promotions or price cuts"
@@ -49,7 +50,6 @@ combined["Suggestion"] = combined.apply(
     axis=1
 )
 
-# ── Apply filter for POS data ───────────────────────────────────────────────────
 if selected != "All":
     combined = combined[combined["Firm ID"].astype(str) == selected]
 
@@ -63,13 +63,32 @@ st.dataframe(
     use_container_width=True
 )
 
-# ── Automatic System Suggestions ────────────────────────────────────────────────
-st.subheader("🔔 System-Generated Alerts")
-# Show alerts for the most recent date
-latest_date = combined["Date"].max()
-recent = combined[combined["Date"] == latest_date]
-for _, row in recent.iterrows():
-    if "Below avg" in row["Suggestion"]:
-        st.warning(f"{row['Firm Name']} ({row['Date']}): {row['Suggestion']}")
-    else:
-        st.success(f"{row['Firm Name']} ({row['Date']}): {row['Suggestion']}")
+# ── AI-Driven Business Recommendations ───────────────────────────────────────────
+st.subheader("🤖 AI-Driven Recommendations")
+if selected != "All":
+    firm = firms[firms["Firm ID"].astype(str) == selected].iloc[0].to_dict()
+    recent = combined[combined["Firm ID"].astype(str) == selected].sort_values("Date").iloc[-1].to_dict()
+    prompt = f"""
+You are a business consultant AI. 
+The company '{firm['Firm Name']}' with bank '{firm['Bank']}' on the '{firm['Package']}' package,
+account balance {firm['Account Balance (KM)']} KM.
+Their most recent daily revenue on {recent['Date']} was {recent['Daily Revenue']:.2f} KM,
+historical daily average is {recent['Avg Daily Revenue']:.2f} KM.
+Provide actionable suggestions to improve profitability: 
+– Price adjustments 
+– Bank/package changes 
+– Cost optimizations.
+Respond in bullet points.
+"""
+    try:
+        openai.api_key = st.secrets["OPENAI_API_KEY"]
+        response = openai.ChatCompletion.create(
+            model="gpt-4o-mini",
+            messages=[{"role":"user","content":prompt}],
+            temperature=0.7,
+            max_tokens=300
+        )
+        ai_suggestions = response.choices[0].message.content
+        st.markdown(ai_suggestions)
+    except Exception as e:
+        st.error(f"AI recommendation error: {e}")
