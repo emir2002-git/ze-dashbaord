@@ -8,9 +8,6 @@ st.set_page_config(page_title="Z&E Live Dashboard", layout="wide")
 st.title("📊 Z&E Live Dashboard for Micro Businesses")
 st.markdown("Automatic data refresh simulation and real-time comparisons")
 
-# Refresh button
-if st.button("🔄 Refresh Data"):
-    st.experimental_rerun()
 
 # Load firm data
 firms = pd.read_csv("firme.csv")
