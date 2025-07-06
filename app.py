@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import datetime
 import plotly.express as px
-from openai import OpenAI
+from openai 
 from streamlit_autorefresh import st_autorefresh
 
 # ── Load OpenAI key from secrets ────────────────────────────────────────────────
