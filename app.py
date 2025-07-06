@@ -2,16 +2,16 @@ import streamlit as st
 import pandas as pd
 import datetime
 import plotly.express as px
-import openai
+from openai import OpenAI
 from streamlit_autorefresh import st_autorefresh
 
 # ── Load OpenAI key from secrets ────────────────────────────────────────────────
 # .streamlit/secrets.toml must contain:
 # [openai]
 # api_key = "sk-…your full key…"
-openai.api_key = st.secrets["openai"]["api_key"]
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
-# ── Page setup & auto-refresh ────────────────────────────────────────────────────
+# ── Page setup & auto‐refresh ─────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 st.title("📊 Z&E Dashboard with AI Insights")
@@ -87,8 +87,7 @@ else:
         today_rev = df[df["Date"] == last_date]["Revenue (KM)"].sum()
         avg_rev   = df.groupby("Date")["Revenue (KM)"].sum().mean()
 
-        prompt = f"""
-You are an expert business consultant AI.
+        prompt = f"""You are an expert business consultant AI.
 Company: {firm['Firm Name']}
 Industry: {firm['Industry']}
 Bank & Package: {firm['Bank']} / {firm['Package']}
@@ -103,14 +102,16 @@ Provide 4–6 actionable bullet-point recommendations to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
+        # Call the new v1 OpenAI client
         resp = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role":"system","content":"You are a helpful business advisor."},
-        {"role":"user","content":prompt}
-    ],
-    temperature=0.7,
-    max_tokens=250
-)
-advice = resp.choices[0].message.content
-st.markdown(advice)
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role":"system", "content":"You are a helpful business advisor."},
+                {"role":"user",   "content":prompt}
+            ],
+            temperature=0.7,
+            max_tokens=250
+        )
+        advice = resp.choices[0].message.content
+        st.markdown(advice)
+
