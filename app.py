@@ -1,67 +1,66 @@
+
 import streamlit as st
 import pandas as pd
 import datetime
-import numpy as np
 from streamlit_autorefresh import st_autorefresh
 
-# ── Auto-refresh ────────────────────────────────────────────────────────────────
+# Auto-refresh
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
-
-# ── Page setup ──────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E Advanced Dashboard", layout="wide")
 st.title("📊 Z&E Advanced Dashboard")
 st.caption(f"Last refresh: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
 
-# ── Load data ───────────────────────────────────────────────────────────────────
+# Load data
 firms = pd.read_csv("firms_complex.csv")
 monthly = pd.read_csv("monthly_summary.csv")
 pos_daily = pd.read_csv("pos_daily.csv", parse_dates=["Date"])
 
-# ── Sidebar ────────────────────────────────────────────────────────────────────
+# Sidebar filter
 st.sidebar.subheader("Filter by Firm")
 firm_ids = firms["Firm ID"].astype(str).tolist()
-selected = st.sidebar.selectbox("Firm ID", ["All"] + firm_ids)
+selected = st.sidebar.selectbox("Choose Firm ID", ["All"] + firm_ids)
 
-# ── Monthly Revenue Chart ──────────────────────────────────────────────────────
-st.subheader("📅 Monthly Revenue (Last 12 months)")
-if selected != "All":
-    df_m = monthly[monthly["Firm ID"].astype(str)==selected]
-else:
-    df_m = monthly.groupby("Month")["Monthly Revenue (KM)"].sum().reset_index()
-df_m = df_m.sort_values("Month")
-st.line_chart(data=df_m.set_index("Month")["Monthly Revenue (KM)"])
+# Overview for all firms
+st.subheader("📋 Firms Overview")
+# Compute last month period
+last_month = monthly["Month"].max()
+avg_month = monthly.groupby("Firm ID")["Revenue (KM)"].mean().reset_index(name="Avg Monthly")
+last = monthly[monthly["Month"] == last_month][["Firm ID", "Revenue (KM)"]].rename(columns={"Revenue (KM)": "Last Month Revenue"})
+overview = firms.merge(avg_month, on="Firm ID").merge(last, on="Firm ID")
+overview["Performance"] = overview.apply(lambda r: "Up" if r["Last Month Revenue"] >= r["Avg Monthly"] else "Down", axis=1)
+st.dataframe(overview, use_container_width=True)
 
-# ── Daily Sales Table ──────────────────────────────────────────────────────────
-st.subheader("📆 Daily Sales Last Month by Product")
-if selected != "All":
-    df_d = pos_daily[pos_daily["Firm ID"].astype(str)==selected]
-else:
-    df_d = pos_daily.copy()
-# pivot table: product vs sum qty, revenue
-pivot = df_d.groupby("Product").agg({"Quantity":"sum","Revenue (KM)":"sum"}).reset_index()
-pivot.columns = ["Product","Total Quantity","Total Revenue (KM)"]
-st.dataframe(pivot, use_container_width=True)
+# Monthly trends chart
+st.subheader("📈 Monthly Revenue Trends")
+pivot = monthly.pivot(index="Month", columns="Firm ID", values="Revenue (KM)")
+st.line_chart(pivot)
 
-# ── Suggestions ────────────────────────────────────────────────────────────────
-st.subheader("💡 Product Performance Suggestions")
-if selected != "All":
-    # compute avg daily revenue per product over month
-    days = df_d["Date"].nunique()
-    avg_rev = pivot.copy()
-    avg_rev["Avg Daily Revenue"] = (avg_rev["Total Revenue (KM)"]/days).round(2)
-    # find yesterday's revenue by product
-    latest_date = df_d["Date"].max()
-    yest = df_d[df_d["Date"]==latest_date].groupby("Product")["Revenue (KM)"].sum().reset_index()
-    yest.columns = ["Product","Yesterday Revenue"]
-    sugg = avg_rev.merge(yest, on="Product", how="left").fillna(0)
-    # compute variance
-    sugg["Variance (%)"] = ((sugg["Yesterday Revenue"] - sugg["Avg Daily Revenue"])/sugg["Avg Daily Revenue"]*100).round(1)
-    # display table
-    st.dataframe(sugg, use_container_width=True)
-    # suggest best and worst
-    worst = sugg.nsmallest(1, "Variance (%)").iloc[0]
-    best = sugg.nlargest(1, "Variance (%)").iloc[0]
-    st.warning(f"👎 *{worst['Product']}* is down {abs(worst['Variance (%)'])}% vs. average. Consider promotions.")
-    st.success(f"👍 *{best['Product']}* is up {best['Variance (%)']}% vs. average. Focus inventory on it.")
+# Daily product summary for last month
+st.subheader("🛒 Daily Sales by Product (last 30 days)")
+if selected == "All":
+    df_daily = pos_daily.copy()
 else:
-    st.info("Select a firm to see product suggestions.")
+    df_daily = pos_daily[pos_daily["Firm ID"].astype(str) == selected]
+prod_summary = df_daily.groupby("Product")[["Quantity", "Revenue (KM)"]].sum().reset_index()
+st.dataframe(prod_summary.sort_values("Revenue (KM)", ascending=False), use_container_width=True)
+
+# Product performance suggestions
+st.subheader("🤔 Product Performance Suggestions")
+# Compute average daily per product and yesterday's revenue
+yesterday = df_daily["Date"].max()
+avg_daily = df_daily.groupby("Product")["Revenue (KM)"].mean()
+yest_rev = df_daily[df_daily["Date"] == yesterday].groupby("Product")["Revenue (KM)"].sum()
+perf = pd.DataFrame({"Avg": avg_daily, "Yesterday": yest_rev}).fillna(0)
+perf["Delta"] = perf["Yesterday"] - perf["Avg"]
+st.dataframe(perf.reset_index(), use_container_width=True)
+# Suggestions
+st.markdown("**Worst performers (delta < 0)**")
+for prod, row in perf.iterrows():
+    if row["Delta"] < 0:
+        st.markdown(f"- `{prod}`: yesterday {row['Yesterday']:.2f} vs avg {row['Avg']:.2f} KM; consider promotion.")
+
+st.markdown("**Top performers (delta >= 0)**")
+for prod, row in perf.iterrows():
+    if row["Delta"] >= 0:
+        st.markdown(f"- `{prod}`: strong performance yesterday ({row['Yesterday']:.2f} KM).")
+
