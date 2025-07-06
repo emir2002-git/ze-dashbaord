@@ -3,10 +3,11 @@ import pandas as pd
 import datetime
 import plotly.express as px
 from streamlit_autorefresh import st_autorefresh
+import openai
 from openai import OpenAI
 
 # ── OpenAI client ───────────────────────────────────────────────────────────────
-client = OpenAI()  # Reads OPENAI_API_KEY from st.secrets
+client = OpenAI(api_key=st.secrets["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"])
 
 # ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
