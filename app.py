@@ -75,7 +75,7 @@ elif menu == "🛒 Daily Sales":
     fig2 = px.bar(summary, x="Product", y="Revenue (KM)", template="plotly_dark")
     st.plotly_chart(fig2, use_container_width=True)
 
-# ── 💡 AI Recommendations & ChatGPT link ────────────────────────────────────────
+# ── 💡 AI Recommendations ────────────────────────────────────────────────────────
 else:
     st.header("💡 AI-Powered Recommendations")
     if selected == "All":
@@ -83,7 +83,6 @@ else:
     elif daily_f.empty:
         st.warning("No sales data available for this firm.")
     else:
-        # Build prompt
         firm      = firms.loc[firms["Firm ID"] == fid].iloc[0]
         latest_dt = daily_f["Date"].max()
         today_rev = daily_f[daily_f["Date"] == latest_dt]["Revenue (KM)"].sum()
@@ -105,7 +104,6 @@ Provide 4–6 actionable bullet-point recommendations to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
-        # Try GPT-3.5 then GPT-4-o-mini, fallback to rules
         for model in ("gpt-3.5-turbo", "gpt-4o-mini"):
             try:
                 res = client.chat.completions.create(
@@ -147,7 +145,6 @@ Provide 4–6 actionable bullet-point recommendations to:
     st.markdown("---")
     chat_link = "https://chatgpt.com/c/686acbe1-4328-8005-872c-36e6acf6f179"
     st.markdown(
-        f"[💬 Continue in ChatGPT]({chat_link}){{:target=\"_blank\"}}",
+        f"[💬 Continue in ChatGPT]({chat_link})",
         unsafe_allow_html=True
     )
-
