@@ -6,12 +6,12 @@ from streamlit_autorefresh import st_autorefresh
 from openai import OpenAI
 
 # ── OpenAI client ───────────────────────────────────────────────────────────────
-client = OpenAI()  # reads OPENAI_API_KEY from st.secrets
+client = OpenAI()  # Reads OPENAI_API_KEY from st.secrets
 
 # ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
-st.title("📊 Z&E Dashboard with AI Suggestions")
+st.title("📊 Z&E Dashboard with AI & ChatGPT Link")
 st.markdown("**Last refresh:** " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 # ── Load data ───────────────────────────────────────────────────────────────────
@@ -21,13 +21,16 @@ daily   = pd.read_csv("pos_daily.csv", parse_dates=["Date"])
 
 # ── Sidebar: navigation & firm filter ────────────────────────────────────────────
 st.sidebar.title("Navigation")
-menu     = st.sidebar.radio("Go to", ["🏠 Overview", "📈 Monthly Trend", "🛒 Daily Sales", "💡 Recommendations"])
+menu     = st.sidebar.radio(
+    "Go to",
+    ["🏠 Overview", "📈 Monthly Trend", "🛒 Daily Sales", "💡 AI Recommendations"]
+)
 st.sidebar.markdown("---")
 st.sidebar.subheader("Filter by Firm")
 ids      = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Firm ID", ["All"] + ids)
 
-# ── Prepare filtered data ────────────────────────────────────────────────────────
+# ── Filter data ─────────────────────────────────────────────────────────────────
 if selected == "All":
     monthly_f = monthly.copy()
     daily_f   = daily.copy()
@@ -72,7 +75,7 @@ elif menu == "🛒 Daily Sales":
     fig2 = px.bar(summary, x="Product", y="Revenue (KM)", template="plotly_dark")
     st.plotly_chart(fig2, use_container_width=True)
 
-# ── 💡 AI-Powered Recommendations with Fallback ────────────────────────────────
+# ── 💡 AI Recommendations & ChatGPT link ────────────────────────────────────────
 else:
     st.header("💡 AI-Powered Recommendations")
     if selected == "All":
@@ -80,6 +83,7 @@ else:
     elif daily_f.empty:
         st.warning("No sales data available for this firm.")
     else:
+        # Build prompt
         firm      = firms.loc[firms["Firm ID"] == fid].iloc[0]
         latest_dt = daily_f["Date"].max()
         today_rev = daily_f[daily_f["Date"] == latest_dt]["Revenue (KM)"].sum()
@@ -101,7 +105,7 @@ Provide 4–6 actionable bullet-point recommendations to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
-        # Try models in order, fallback on known errors
+        # Try GPT-3.5 then GPT-4-o-mini, fallback to rules
         for model in ("gpt-3.5-turbo", "gpt-4o-mini"):
             try:
                 res = client.chat.completions.create(
@@ -115,23 +119,21 @@ Provide 4–6 actionable bullet-point recommendations to:
                 )
                 st.markdown(res.choices[0].message.content)
                 break
-
             except Exception as e:
                 err = str(e).lower()
                 if "model_not_found" in err or "insufficient_quota" in err:
-                    st.warning(f"{model} unavailable ({err.split(':')[0]}), trying next…")
+                    st.warning(f"{model} unavailable, trying next…")
                     continue
                 st.error(f"AI error ({model}): {e}")
                 break
         else:
-            # All AI attempts failed → rule-based fallback
             st.error("AI unavailable—showing rule-based advice.")
             if today_rev < avg_rev:
                 st.markdown("""
 1. Launch a limited-time “Happy Hour” on slow items.
 2. Increase prices by 3–5% on best-sellers to boost margins.
 3. Negotiate a lower-fee bank package.
-4. Optimize staffing to match peak hours.
+4. Optimize staffing to peak hours only.
 """)
             else:
                 st.markdown("""
@@ -140,3 +142,12 @@ Provide 4–6 actionable bullet-point recommendations to:
 3. Implement a customer loyalty program.
 4. Review supplier contracts for discounts.
 """)
+
+    # ── ChatGPT “New Chat” Link ──────────────────────────────────────────────────
+    st.markdown("---")
+    chat_link = "https://chatgpt.com/c/686acbe1-4328-8005-872c-36e6acf6f179"
+    st.markdown(
+        f"[💬 Continue in ChatGPT]({chat_link}){{:target=\"_blank\"}}",
+        unsafe_allow_html=True
+    )
+
