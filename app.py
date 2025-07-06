@@ -21,17 +21,20 @@ st.sidebar.subheader("Filter by Firm")
 firm_ids = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Choose a Firm ID", ["All"] + firm_ids)
 
-# ── Show firms ─────────────────────────────────────────────────────────────────
+# ── Display firms ───────────────────────────────────────────────────────────────
 st.subheader("📁 Registered Firms")
 if selected == "All":
     st.dataframe(firms, use_container_width=True)
 else:
-    st.dataframe(firms[firms["Firm ID"].astype(str) == selected], use_container_width=True)
+    st.dataframe(
+        firms[firms["Firm ID"].astype(str) == selected],
+        use_container_width=True
+    )
 
 # ── Compute daily & average revenue ─────────────────────────────────────────────
 daily = (
     pos
-    .groupby(["Firm ID","Date"])["Revenue (KM)"]
+    .groupby(["Firm ID", "Date"])["Revenue (KM)"]
     .sum()
     .reset_index(name="Daily Revenue")
 )
@@ -51,12 +54,6 @@ combined = (
     )
 )
 
-# ── System suggestion column (just a flag) ──────────────────────────────────────
-combined["Sys Flag"] = combined.apply(
-    lambda r: "Below avg" if r["Daily Revenue"] < r["Avg Daily Revenue"] else "Ok",
-    axis=1
-)
-
 # ── Filter by selection ─────────────────────────────────────────────────────────
 if selected != "All":
     combined = combined[combined["Firm ID"].astype(str) == selected]
@@ -66,8 +63,8 @@ st.subheader("🔀 Daily Revenue vs. Avg")
 st.dataframe(
     combined[
         [
-            "Firm ID","Firm Name","Date",
-            "Daily Revenue","Avg Daily Revenue","Sys Flag"
+            "Firm ID", "Firm Name", "Date",
+            "Daily Revenue", "Avg Daily Revenue"
         ]
     ],
     use_container_width=True
@@ -75,46 +72,55 @@ st.dataframe(
 
 # ── AI-Driven Business Recommendations ───────────────────────────────────────────
 st.subheader("🤖 AI-Driven Recommendations")
-if selected != "All":
-    # build the prompt with firm & recent stats
+if selected == "All":
+    st.info("Select a single firm to see AI-driven recommendations.")
+else:
+    # Build prompt
     firm = firms[firms["Firm ID"].astype(str) == selected].iloc[0]
     latest = combined.sort_values("Date").iloc[-1]
     prompt = f"""
-You are a business consultant AI for small micro-businesses.
+You are a business consultant AI.
 Company: {firm['Firm Name']}
 Bank: {firm['Bank']} (package: {firm['Package']})
 Account balance: {firm['Account Balance (KM)']} KM 
 Most recent daily revenue on {latest['Date']}: {latest['Daily Revenue']:.2f} KM
 Historical average daily revenue: {latest['Avg Daily Revenue']:.2f} KM
 
-Provide 3–5 actionable recommendations to increase profitability:
+Provide 3-5 actionable recommendations to increase profitability:
 - Suggested price adjustments
-- Potential bank/package changes for lower fees
-- Cost optimizations or staffing tips
-- Any AI-driven insights
-Respond as a numbered bullet list.
+- Bank/package changes for lower fees
+- Cost optimizations
+Respond in a numbered list.
 """.strip()
 
-  try:
-    res = openai.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content": prompt}],
-        temperature=0.7,
-        max_tokens=300
-    )
-    ai_text = res.choices[0].message.content
-    st.markdown(ai_text)
-except openai.error.InvalidRequestError as e:
-    if e.error and e.error.get("code") == "insufficient_quota":
-        st.error("⚠️ OpenAI quota exceeded. Showing rule-based suggestions instead.")
-        # rule-based fallback:
+    # Set API key
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
+
+    try:
+        # Use gpt-3.5-turbo for better quota
+        res = openai.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role":"user","content":prompt}],
+            temperature=0.7,
+            max_tokens=300
+        )
+        ai_text = res.choices[0].message.content
+        st.markdown(ai_text)
+    except Exception as e:
+        # Fallback: rule-based suggestions
+        st.error(f"AI error: {e}")
+        st.markdown("### Rule-based recommendations:")
         if latest["Daily Revenue"] < latest["Avg Daily Revenue"]:
             st.markdown(
-                "- Below average revenue – consider lowering costs or running a promotion.\n"
-                "- Review your pricing: you could raise prices by 3–5% on best-sellers.\n"
-                "- Compare banking fees: switching to Addiko’s “Mini” package could save you 20 KM/mo.\n"
+                "1. Daily revenue is below average — run a limited-time promotion.\n"
+                "2. Consider increasing prices by 3–5% on your best-selling items.\n"
+                "3. Review and switch to a lower-fee bank/package if possible.\n"
+                "4. Optimize staffing to off-peak hours to save costs.\n"
             )
         else:
-            st.success("✅ Revenue is healthy. Consider expanding your product range or marketing.")
-    else:
-        st.error(f"AI recommendation error: {e}")
+            st.markdown(
+                "1. Revenue is healthy — explore expanding your product line.\n"
+                "2. Invest in small marketing campaigns to boost traffic.\n"
+                "3. Negotiate with your bank for loyalty discounts on your current package.\n"
+            )
+
