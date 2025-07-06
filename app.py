@@ -1,11 +1,13 @@
 
 
-import streamlit as st
-from streamlit_autorefresh import st_autorefresh
-st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
-import pandas as pd
-import datetime
-import os
+ import streamlit as st
+ from streamlit_autorefresh import st_autorefresh
+ st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
+ import pandas as pd
+ import datetime
+ import requests
+ import io
+ import os
 # ── LIVE DATA SOURCES ────────────────────────────────
 FIRMES_CSV_URL = "https://…/export?format=csv&gid=0"
 POS_CSV_URL    = "https://…/export?format=csv&gid=0"
@@ -22,7 +24,9 @@ st.markdown("Data refreshes every minute automatically.\n\n")
 
 
 # ── Load Firms ─────────────────────────────────────────────────────────────────
-firms = pd.read_csv(FIRMES_CSV_URL)
+resp = requests.get(FIRMES_CSV_URL)
+resp.encoding = "utf-8"
+firms = pd.read_csv(io.StringIO(resp.text))
 st.subheader("📁 Registered Firms")
 st.write(f"_Firms data fetched at: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}_")
 st.dataframe(firms, use_container_width=True)
@@ -33,7 +37,9 @@ uploaded = st.file_uploader("Upload a CSV file with POS data", type="csv")
 
 if uploaded:
     try:
-        pos = pd.read_csv(uploaded, parse_dates=["Datum"])
+        r = requests.get(POS_CSV_URL)
+        r.encoding = "utf-8"
+        pos = pd.read_csv(io.StringIO(r.text), parse_dates=["Datum"])
         st.success("✅ New POS data loaded in memory")
     except Exception as e:
         st.error(f"❌ Could not read uploaded file: {e}")
