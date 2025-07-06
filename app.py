@@ -11,7 +11,7 @@ st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 
 
 # Show when this run happened:
-now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 st.caption(f"Last refresh: {now}")
 
 # ── Page config ────────────────────────────────────────────────────────────────
