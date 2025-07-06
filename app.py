@@ -116,9 +116,20 @@ Provide 4–6 actionable bullet points to:
             "temperature": 0.7,
             "max_tokens": 250
         }
-        resp = requests.post("https://api.openai.com/v1/chat/completions",
-                             headers=HEADERS, json=body, timeout=30)
-        resp.raise_for_status()
-        data   = resp.json()
+        r = requests.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers=HEADERS,
+                json=body,
+                timeout=30
+            )
+            r.raise_for_status()
+            data = r.json()
+        except requests.exceptions.HTTPError as err:
+            st.error(f"⚠️ OpenAI API returned {r.status_code}: {r.text}")
+            st.stop()
+        except Exception as e:
+            st.error(f"⚠️ Unexpected error: {e}")
+            st.stop()
+
         advice = data["choices"][0]["message"]["content"]
         st.markdown(advice)
