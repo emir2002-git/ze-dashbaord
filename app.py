@@ -6,7 +6,7 @@ import requests
 from streamlit_autorefresh import st_autorefresh
 
 # ── YOUR OPENAI KEY ───────────────────────────────────────────────────────────────
-# Replace with your actual key (all on one line)
+# Replace this string with your full key (all on one line)
 OPENAI_KEY = "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"
 HEADERS = {
     "Authorization": f"Bearer {OPENAI_KEY}",
@@ -26,7 +26,7 @@ daily_sales = pd.read_csv("pos_daily.csv", parse_dates=["Date"])
 
 # ── SIDEBAR NAVIGATION & FIRM SELECT ──────────────────────────────────────────────
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["🏠 Overview", "📈 Monthly Trend", "🛒 Daily Sales", "💡 AI Insights"])
+page     = st.sidebar.radio("Go to", ["🏠 Overview", "📈 Monthly Trend", "🛒 Daily Sales", "💡 AI Insights"])
 st.sidebar.markdown("---")
 st.sidebar.subheader("Select Firm")
 firm_ids = firms["Firm ID"].astype(str).tolist()
@@ -34,14 +34,13 @@ selected = st.sidebar.selectbox("Firm ID", ["All"] + firm_ids)
 
 # ── FILTER DATA ───────────────────────────────────────────────────────────────────
 if selected == "All":
-    mf = monthly.copy()
-    df = daily_sales.copy()
+    mf, df = monthly.copy(), daily_sales.copy()
 else:
     fid = int(selected)
     mf = monthly[monthly["Firm ID"] == fid].copy()
     df = daily_sales[daily_sales["Firm ID"] == fid].copy()
 
-# ── OVERVIEW PAGE ─────────────────────────────────────────────────────────────────
+# ── OVERVIEW ───────────────────────────────────────────────────────────────────────
 if page == "🏠 Overview":
     st.header("🏠 Overview")
     ytd   = df["Revenue (KM)"].sum()
@@ -52,18 +51,19 @@ if page == "🏠 Overview":
     st.subheader("Registered Firms")
     st.dataframe(firms, use_container_width=True)
 
-# ── MONTHLY TREND PAGE ─────────────────────────────────────────────────────────────
+# ── MONTHLY TREND ─────────────────────────────────────────────────────────────────
 elif page == "📈 Monthly Trend":
     st.header("📈 Monthly Revenue Trend")
     fig = px.line(
-        mf, x="Month", y="Monthly Revenue",
+        mf,
+        x="Month", y="Monthly Revenue",
         color="Firm ID" if selected == "All" else None,
         markers=True, template="plotly_dark"
     )
     fig.update_layout(hovermode="x unified")
     st.plotly_chart(fig, use_container_width=True)
 
-# ── DAILY SALES PAGE ──────────────────────────────────────────────────────────────
+# ── DAILY SALES ───────────────────────────────────────────────────────────────────
 elif page == "🛒 Daily Sales":
     st.header("🛒 Daily Sales by Product (Last 30 days)")
     summary = (
@@ -76,15 +76,15 @@ elif page == "🛒 Daily Sales":
     bar = px.bar(summary, x="Product", y="Revenue (KM)", template="plotly_dark")
     st.plotly_chart(bar, use_container_width=True)
 
-# ── AI INSIGHTS PAGE ──────────────────────────────────────────────────────────────
+# ── AI INSIGHTS ───────────────────────────────────────────────────────────────────
 else:
     st.header("💡 AI-Generated Insights")
     if selected == "All":
-        st.info("Please select a single firm to get AI recommendations.")
+        st.info("Please select one firm to get AI recommendations.")
     elif df.empty:
         st.warning("No POS data available for this firm.")
     else:
-        # Build the prompt
+        # Build the AI prompt
         firm      = firms[firms["Firm ID"] == fid].iloc[0]
         last_date = df["Date"].max().date()
         today_rev = df[df["Date"].dt.date == last_date]["Revenue (KM)"].sum()
@@ -106,7 +106,7 @@ Provide 4–6 actionable bullet points to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
-        # Call OpenAI REST endpoint directly
+        # Call OpenAI REST endpoint directly with error handling
         body = {
             "model": "gpt-3.5-turbo",
             "messages": [
@@ -116,7 +116,8 @@ Provide 4–6 actionable bullet points to:
             "temperature": 0.7,
             "max_tokens": 250
         }
-                try:
+
+        try:
             r = requests.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers=HEADERS,
@@ -125,8 +126,8 @@ Provide 4–6 actionable bullet points to:
             )
             r.raise_for_status()
             data = r.json()
-        except requests.exceptions.HTTPError as err:
-            st.error(f"⚠️ OpenAI API returned {r.status_code}: {r.text}")
+        except requests.exceptions.HTTPError:
+            st.error(f"⚠️ OpenAI API error {r.status_code}: {r.text}")
             st.stop()
         except Exception as e:
             st.error(f"⚠️ Unexpected error: {e}")
@@ -134,5 +135,3 @@ Provide 4–6 actionable bullet points to:
 
         advice = data["choices"][0]["message"]["content"]
         st.markdown(advice)
-
-        
