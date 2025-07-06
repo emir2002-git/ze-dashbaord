@@ -95,19 +95,26 @@ Provide 3–5 actionable recommendations to increase profitability:
 Respond as a numbered bullet list.
 """.strip()
 
-    try:
-        openai.api_key = st.secrets["OPENAI_API_KEY"]
-        res = openai.chat.completions.create(
-         model="gpt-3.5-turbo",
-         messages=[{"role":"user","content": prompt}],
-         temperature=0.7,
-          max_tokens=300
-)
-        )
-        ai_text = res.choices[0].message.content
-        st.markdown(ai_text)
-    except Exception as e:
+  try:
+    res = openai.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content": prompt}],
+        temperature=0.7,
+        max_tokens=300
+    )
+    ai_text = res.choices[0].message.content
+    st.markdown(ai_text)
+except openai.error.InvalidRequestError as e:
+    if e.error and e.error.get("code") == "insufficient_quota":
+        st.error("⚠️ OpenAI quota exceeded. Showing rule-based suggestions instead.")
+        # rule-based fallback:
+        if latest["Daily Revenue"] < latest["Avg Daily Revenue"]:
+            st.markdown(
+                "- Below average revenue – consider lowering costs or running a promotion.\n"
+                "- Review your pricing: you could raise prices by 3–5% on best-sellers.\n"
+                "- Compare banking fees: switching to Addiko’s “Mini” package could save you 20 KM/mo.\n"
+            )
+        else:
+            st.success("✅ Revenue is healthy. Consider expanding your product range or marketing.")
+    else:
         st.error(f"AI recommendation error: {e}")
-else:
-    st.info("Select a single firm to see AI-driven recommendations.")
-
