@@ -1,4 +1,3 @@
-from openai import OpenAI
 import streamlit as st
 import pandas as pd
 import datetime
@@ -10,7 +9,8 @@ from streamlit_autorefresh import st_autorefresh
 # In .streamlit/secrets.toml:
 # [openai]
 # api_key = "sk-..."
-openai.api_key = st.secrets["openai"]["api_key"] 
+openai.api_key = st.secrets["openai"]["api_key"]
+
 # ── Auto-refresh & page setup ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
@@ -105,14 +105,15 @@ Provide 4–6 actionable bullet points to:
 """.strip()
 
         # fetch AI response
-        response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[
-        {"role":"system","content":"You are a helpful business advisor."},
-        {"role":"user","content": prompt}
-    ],
-    temperature=0.7,
-    max_tokens=250
-)
-advice = response.choices[0].message.content
-st.markdown(advice)
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role":"system","content":"You are a helpful business advisor."},
+                {"role":"user","content":prompt}
+            ],
+            temperature=0.7,
+            max_tokens=250
+        )
+        advice = response.choices[0].message.content
+        st.markdown(advice)
+
