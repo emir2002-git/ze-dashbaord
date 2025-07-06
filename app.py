@@ -116,7 +116,8 @@ Provide 4–6 actionable bullet points to:
             "temperature": 0.7,
             "max_tokens": 250
         }
-        r = requests.post(
+                try:
+            r = requests.post(
                 "https://api.openai.com/v1/chat/completions",
                 headers=HEADERS,
                 json=body,
@@ -133,3 +134,5 @@ Provide 4–6 actionable bullet points to:
 
         advice = data["choices"][0]["message"]["content"]
         st.markdown(advice)
+
+        
