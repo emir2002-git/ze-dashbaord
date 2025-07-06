@@ -4,9 +4,11 @@ import datetime
 import plotly.express as px
 from streamlit_autorefresh import st_autorefresh
 from openai import OpenAI
+from openai.error import InvalidRequestError
 
 # ── OpenAI client ───────────────────────────────────────────────────────────────
-client = OpenAI()  # reads OPENAI_API_KEY from st.secrets
+# Instantiates with your key from st.secrets["OPENAI_API_KEY"]
+client = OpenAI()
 
 # ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
@@ -27,7 +29,7 @@ st.sidebar.subheader("Filter by Firm")
 ids      = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Firm ID", ["All"] + ids)
 
-# ── Prepare filtered data (fixed boolean indexing) ───────────────────────────────
+# ── Prepare filtered data ────────────────────────────────────────────────────────
 if selected == "All":
     monthly_f = monthly.copy()
     daily_f   = daily.copy()
@@ -53,7 +55,7 @@ elif menu == "📈 Monthly Trend":
     fig = px.line(
         monthly_f,
         x="Month", y="Monthly Revenue",
-        color="Firm ID" if selected=="All" else None,
+        color="Firm ID" if selected == "All" else None,
         markers=True, template="plotly_dark"
     )
     fig.update_layout(hovermode="x unified")
@@ -63,15 +65,16 @@ elif menu == "📈 Monthly Trend":
 elif menu == "🛒 Daily Sales":
     st.header("🛒 Daily Sales by Product (Last 30 days)")
     summary = (
-        daily_f.groupby("Product")[["Quantity","Revenue (KM)"]]
-        .sum().reset_index()
+        daily_f.groupby("Product")[["Quantity", "Revenue (KM)"]]
+        .sum()
+        .reset_index()
     )
     summary["Revenue (KM)"] = summary["Revenue (KM)"].round(2)
     st.dataframe(summary, use_container_width=True)
     fig2 = px.bar(summary, x="Product", y="Revenue (KM)", template="plotly_dark")
     st.plotly_chart(fig2, use_container_width=True)
 
-# ── 💡 AI-Powered Recommendations with Fallback ─────────────────────────────────
+# ── 💡 AI-Powered Recommendations with Fallback ────────────────────────────────
 else:
     st.header("💡 AI-Powered Recommendations")
     if selected == "All":
@@ -79,11 +82,11 @@ else:
     elif daily_f.empty:
         st.warning("No sales data available for this firm.")
     else:
-        # build prompt
-        firm = firms.loc[firms["Firm ID"] == fid].iloc[0]
-        latest_date = daily_f["Date"].max()
-        today_rev   = daily_f[daily_f["Date"] == latest_date]["Revenue (KM)"].sum()
-        avg_rev     = daily_f.groupby("Date")["Revenue (KM)"].sum().mean()
+        firm       = firms.loc[firms["Firm ID"] == fid].iloc[0]
+        latest_dt  = daily_f["Date"].max()
+        today_rev  = daily_f[daily_f["Date"] == latest_dt]["Revenue (KM)"].sum()
+        avg_rev    = daily_f.groupby("Date")["Revenue (KM)"].sum().mean()
+
         prompt = f"""
 You are a business consultant AI.
 Company: {firm['Firm Name']}
@@ -91,51 +94,53 @@ Industry: {firm['Industry']}
 Bank package: {firm['Bank']} / {firm['Package']}
 Account balance: {firm['Account Balance (KM)']} KM
 
-On {latest_date.date()}, total revenue was {today_rev:.2f} KM.
+On {latest_dt.date()}, total revenue was {today_rev:.2f} KM.
 Historical average daily revenue is {avg_rev:.2f} KM.
 
 Provide 4–6 actionable bullet-point recommendations to:
 - Increase revenue (pricing, promotions, product mix)
 - Reduce costs (bank fees, suppliers, staffing)
 - Improve customer retention (loyalty, upsells)
-"""
-        # try GPT-4, then 3.5, then fallback
-        for model in ("gpt-4", "gpt-3.5-turbo"):
+""".strip()
+
+        # Attempt GPT calls in order, then fallback
+        for model in ("gpt-3.5-turbo", "gpt-4o-mini"):
             try:
                 resp = client.chat.completions.create(
                     model=model,
                     messages=[
-                        {"role":"system","content":"You are a helpful business advisor."},
-                        {"role":"user","content":prompt}
+                        {"role":"system", "content":"You are a helpful business advisor."},
+                        {"role":"user",   "content":prompt}
                     ],
                     temperature=0.7,
                     max_tokens=250
                 )
                 st.markdown(resp.choices[0].message.content)
                 break
-            except Exception as e:
-                # check for quota error or other issues
-                if "insufficient_quota" in str(e).lower():
-                    st.warning(f"{model} quota exhausted, trying next model…")
+            except InvalidRequestError as e:
+                code = getattr(e, "error", {}).get("code", "").lower()
+                if code in ("model_not_found", "insufficient_quota"):
+                    st.warning(f"{model} unavailable ({code}), trying next model…")
                     continue
-                else:
-                    st.error(f"AI error ({model}): {e}")
-                    break
+                st.error(f"OpenAI error ({model}): {e}")
+                break
+            except Exception as e:
+                st.error(f"Unexpected AI error: {e}")
+                break
         else:
-            # rule-based fallback
+            # Both AI models failed: rule-based fallback
             st.error("AI unavailable—showing rule-based suggestions.")
-            dr = today_rev; ar = avg_rev
-            if dr < ar:
+            if today_rev < avg_rev:
                 st.markdown("""
-1. Run a limited-time “Happy Hour” promotion on slow items.
+1. Launch a limited-time “Happy Hour” on slow items.
 2. Increase prices by 3–5% on best-sellers to boost margins.
-3. Negotiate a lower-fee bank package.
-4. Optimize staffing to peak hours only.
+3. Negotiate a lower-fee banking package.
+4. Optimize staffing to match peak hours only.
 """)
             else:
                 st.markdown("""
-1. Maintain current pricing but monitor competitors.
-2. Launch a small digital marketing campaign.
-3. Implement a loyalty program for repeat customers.
-4. Review supplier contracts for bulk discounts.
+1. Maintain pricing but monitor competitors.
+2. Run a small digital marketing campaign.
+3. Implement a customer loyalty program.
+4. Review supplier contracts for discounts.
 """)
