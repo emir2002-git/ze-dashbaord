@@ -7,7 +7,7 @@ from streamlit_autorefresh import st_autorefresh
 
 # ── YOUR OPENAI KEY ───────────────────────────────────────────────────────────────
 # Replace this string with your full key (all on one line)
-OPENAI_KEY = "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"
+OPENAI_KEY = "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"
 HEADERS = {
     "Authorization": f"Bearer {OPENAI_KEY}",
     "Content-Type": "application/json"
