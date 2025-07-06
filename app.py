@@ -1,13 +1,13 @@
 
 
- import streamlit as st
- from streamlit_autorefresh import st_autorefresh
- st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
- import pandas as pd
- import datetime
- import requests
- import io
- import os
+import streamlit as st
+from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=60_000, limit=None, key="auto_refresh)
+import pandas as pd
+import datetime
+import requests
+import io
+import os
 # ── LIVE DATA SOURCES ────────────────────────────────
 FIRMES_CSV_URL = "https://…/export?format=csv&gid=0"
 POS_CSV_URL    = "https://…/export?format=csv&gid=0"
