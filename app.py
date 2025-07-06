@@ -1,4 +1,5 @@
 
+
 import streamlit as st
 import pandas as pd
 from streamlit_autorefresh import st_autorefresh
@@ -94,5 +95,7 @@ for _, row in firms.iterrows():
         st.success(f"✅ *{name}* has strong historical performance. Consider a price increase.")
     else:
         st.info(f"ℹ️ *{name}* is performing within expected range.")
+
+
 
 
