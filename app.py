@@ -1,15 +1,14 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import openai
 from streamlit_autorefresh import st_autorefresh
 
 # ── Auto-refresh every 60 seconds ───────────────────────────────────────────────
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 
 # ── Page config ─────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="📊 Z&E AI Dashboard", layout="wide")
-st.title("📊 Z&E Dashboard with AI Recommendations")
+st.set_page_config(page_title="📊 Z&E Business Dashboard", layout="wide")
+st.title("📊 Z&E Dashboard with Recommendations")
 st.caption(f"Last refresh: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
 
 # ── Load data ───────────────────────────────────────────────────────────────────
@@ -59,7 +58,7 @@ if selected != "All":
     combined = combined[combined["Firm ID"].astype(str) == selected]
 
 # ── Show combined revenue table ─────────────────────────────────────────────────
-st.subheader("🔀 Daily Revenue vs. Avg")
+st.subheader("🔀 Daily Revenue vs. Average")
 st.dataframe(
     combined[
         [
@@ -70,57 +69,30 @@ st.dataframe(
     use_container_width=True
 )
 
-# ── AI-Driven Business Recommendations ───────────────────────────────────────────
-st.subheader("🤖 AI-Driven Recommendations")
+# ── Rule-Based Business Recommendations ────────────────────────────────────────
+st.subheader("💡 System Recommendations")
 if selected == "All":
-    st.info("Select a single firm to see AI-driven recommendations.")
+    st.info("Select a single firm to see tailored recommendations.")
 else:
-    # Build prompt
-    firm = firms[firms["Firm ID"].astype(str) == selected].iloc[0]
     latest = combined.sort_values("Date").iloc[-1]
-    prompt = f"""
-You are a business consultant AI.
-Company: {firm['Firm Name']}
-Bank: {firm['Bank']} (package: {firm['Package']})
-Account balance: {firm['Account Balance (KM)']} KM 
-Most recent daily revenue on {latest['Date']}: {latest['Daily Revenue']:.2f} KM
-Historical average daily revenue: {latest['Avg Daily Revenue']:.2f} KM
+    dr = latest["Daily Revenue"]
+    ar = latest["Avg Daily Revenue"]
+    firm_name = latest["Firm Name"]
 
-Provide 3-5 actionable recommendations to increase profitability:
-- Suggested price adjustments
-- Bank/package changes for lower fees
-- Cost optimizations
-Respond in a numbered list.
-""".strip()
-
-    # Set API key
-    openai.api_key = st.secrets["OPENAI_API_KEY"]
-
-    try:
-        # Use gpt-3.5-turbo for better quota
-        res = openai.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role":"user","content":prompt}],
-            temperature=0.7,
-            max_tokens=300
-        )
-        ai_text = res.choices[0].message.content
-        st.markdown(ai_text)
-    except Exception as e:
-        # Fallback: rule-based suggestions
-        st.error(f"AI error: {e}")
-        st.markdown("### Rule-based recommendations:")
-        if latest["Daily Revenue"] < latest["Avg Daily Revenue"]:
-            st.markdown(
-                "1. Daily revenue is below average — run a limited-time promotion.\n"
-                "2. Consider increasing prices by 3–5% on your best-selling items.\n"
-                "3. Review and switch to a lower-fee bank/package if possible.\n"
-                "4. Optimize staffing to off-peak hours to save costs.\n"
-            )
-        else:
-            st.markdown(
-                "1. Revenue is healthy — explore expanding your product line.\n"
-                "2. Invest in small marketing campaigns to boost traffic.\n"
-                "3. Negotiate with your bank for loyalty discounts on your current package.\n"
-            )
-
+    st.markdown(f"### Recommendations for **{firm_name}** on {latest['Date']}")
+    if dr < ar:
+        st.warning("⚠️ Today's revenue is below average.")
+        st.markdown("""
+- **Run a limited-time promotion** (e.g., “Happy Hour” discounts) to boost traffic.
+- **Raise prices by 3–5%** on best-selling items to improve margins.
+- **Compare banking fees** and consider switching to a lower-cost package.
+- **Optimize staffing**, reducing hours during low-traffic periods to cut costs.
+""")
+    else:
+        st.success("✅ Today's revenue meets or exceeds average.")
+        st.markdown("""
+- **Maintain current pricing**, but monitor competitor rates.
+- **Invest in marketing** (social media ads or loyalty programs) to grow further.
+- **Explore premium product lines** with higher margins.
+- **Negotiate with your bank** for loyalty discounts or cashback on transactions.
+""")
