@@ -1,68 +1,92 @@
 
 import streamlit as st
 import pandas as pd
+from streamlit_autorefresh import st_autorefresh
 import datetime
 import os
 
+# ── Auto-refresh every 60 000 ms (60 seconds) ─────────────────────────────────
+st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
+
+# ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E Live Dashboard", layout="wide")
 st.title("📊 Z&E Live Dashboard for Micro Businesses")
-st.markdown("Automatic data refresh simulation and real-time comparisons")
+st.markdown("Data refreshes every minute automatically.\n\n")
 
-# Load firm data
+# ── Load Firms ─────────────────────────────────────────────────────────────────
 firms = pd.read_csv("firme.csv")
+firms_ts = datetime.datetime.fromtimestamp(os.path.getmtime("firme.csv"))
 st.subheader("📁 Registered Firms")
+st.write(f"_Last updated: {firms_ts.strftime('%Y-%m-%d %H:%M:%S')}_")
 st.dataframe(firms, use_container_width=True)
-firm_mod = datetime.datetime.fromtimestamp(os.path.getmtime("firme.csv"))
-st.caption(f"Firms file last updated: {firm_mod.strftime('%Y-%m-%d %H:%M:%S')}")
 
-# Load POS data (with live upload fallback)
-uploaded_file = st.file_uploader("📥 Upload New POS CSV", type="csv")
-if uploaded_file:
+# ── Load POS Sales (with live upload) ───────────────────────────────────────────
+st.subheader("📥 Upload New POS Data (optional)")
+uploaded = st.file_uploader("Upload a CSV file with POS data", type="csv")
+if uploaded:
     try:
-        pos = pd.read_csv(uploaded_file, parse_dates=["Datum"])
-        st.success("✅ New POS data uploaded!")
+        pos = pd.read_csv(uploaded, parse_dates=["Datum"])
+        st.success("✅ New POS data loaded in memory")
     except Exception as e:
-        st.error(f"❌ Error reading uploaded file: {e}")
+        st.error(f"❌ Could not read uploaded file: {e}")
         pos = pd.read_csv("pos.csv", parse_dates=["Datum"])
 else:
     pos = pd.read_csv("pos.csv", parse_dates=["Datum"])
 
-pos_mod = datetime.datetime.fromtimestamp(os.path.getmtime("pos.csv"))
-st.caption(f"POS file last updated: {pos_mod.strftime('%Y-%m-%d %H:%M:%S')}")
+pos_ts = datetime.datetime.fromtimestamp(os.path.getmtime("pos.csv"))
+st.write(f"_POS file last updated: {pos_ts.strftime('%Y-%m-%d %H:%M:%S')}_")
+st.subheader("🛒 POS Sales Data")
+st.dataframe(pos, use_container_width=True)
 
-# Compute Revenue
+# ── Compute Revenue ─────────────────────────────────────────────────────────────
 pos["Revenue"] = pos["Cijena (KM)"] * pos["Količina"]
 
-# Real-time Metrics
+# ── Real-time Revenue Metrics ──────────────────────────────────────────────────
 today = datetime.date.today()
 yesterday = today - datetime.timedelta(days=1)
+
 today_rev = pos[pos["Datum"].dt.date == today]["Revenue"].sum()
 yesterday_rev = pos[pos["Datum"].dt.date == yesterday]["Revenue"].sum()
 
+first_of_month = today.replace(day=1)
+last_month_end = first_of_month - datetime.timedelta(days=1)
+last_month_start = last_month_end.replace(day=1)
+
+current_month_rev = pos[pos["Datum"].dt.date >= first_of_month]["Revenue"].sum()
+last_month_rev = pos[
+    (pos["Datum"].dt.date >= last_month_start) &
+    (pos["Datum"].dt.date <= last_month_end)
+]["Revenue"].sum()
+
 st.subheader("📈 Real-time Revenue Metrics")
 col1, col2 = st.columns(2)
-col1.metric("Today's Revenue (KM)", f"{today_rev:.2f}", delta=f"{today_rev - yesterday_rev:.2f}")
-# Monthly comparison
-first_day = today.replace(day=1)
-last_month_end = first_day - datetime.timedelta(days=1)
-last_month_start = last_month_end.replace(day=1)
-current_month_rev = pos[pos["Datum"].dt.date >= first_day]["Revenue"].sum()
-last_month_rev = pos[(pos["Datum"].dt.date >= last_month_start) & (pos["Datum"].dt.date <= last_month_end)]["Revenue"].sum()
-col2.metric("This Month Revenue (KM)", f"{current_month_rev:.2f}", delta=f"{current_month_rev - last_month_rev:.2f}")
+col1.metric(
+    label="Today's Revenue (KM)",
+    value=f"{today_rev:.2f}",
+    delta=f"{today_rev - yesterday_rev:.2f}"
+)
+col2.metric(
+    label="This Month's Revenue (KM)",
+    value=f"{current_month_rev:.2f}",
+    delta=f"{current_month_rev - last_month_rev:.2f}"
+)
 
-# Daily revenue trend
+# ── Daily Revenue Trend Chart ──────────────────────────────────────────────────
 st.subheader("📊 Daily Revenue Trend")
-daily_rev = pos.groupby(pos["Datum"].dt.date)["Revenue"].sum().reset_index()
-daily_rev = daily_rev.rename(columns={"Datum": "Date"})
-daily_rev = daily_rev.set_index("Date")
-st.line_chart(daily_rev)
+daily = pos.groupby(pos["Datum"].dt.date)["Revenue"].sum().reset_index()
+daily = daily.rename(columns={"Datum": "Date"}).set_index("Date")
+st.line_chart(daily)
 
-# Business Recommendations
+# ── Business Recommendations ────────────────────────────────────────────────────
 st.subheader("🔍 Business Recommendations")
 for _, row in firms.iterrows():
-    if row["POS promet KM"] < 6000:
-        st.warning(f"⚠️ {row['Naziv firme']} is underperforming based on historical revenue.")
-    elif row["POS promet KM"] > 10000:
-        st.success(f"✅ {row['Naziv firme']} has strong historical performance. Consider price increase.")
+    name = row["Naziv firme"]
+    hist_rev = row["POS promet KM"]
+    if hist_rev < 6000:
+        st.warning(f"⚠️ *{name}* is underperforming against historical revenue.")
+    elif hist_rev > 10000:
+        st.success(f"✅ *{name}* has strong historical performance. Consider a price increase.")
     else:
-        st.info(f"ℹ️ {row['Naziv firme']} is performing within expected range.")
+        st.info(f"ℹ️ *{name}* is performing within expected range.")
+
+
