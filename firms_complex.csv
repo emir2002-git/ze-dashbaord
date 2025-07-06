@@ -1,4 +1,4 @@
-Firm ID,Firm Name,PIB,Industry,Address,Contact Email,Employees,Bank,Package,Annual Revenue (KM),Account Balance (KM),Tax Number,Active
-101,Espresso,123456789,Cafe,Main St 1,contact@espresso.ba,3,Raiffeisen,Biznis Start,150000,12000,FBH123456,True
-102,Mala Market,987654321,Retail,Market Road 45,info@malamarket.ba,2,Addiko,Mini,90000,5000,RS987654,True
-103,Z&E Cut,555666777,Salon,Stylist Blvd 9,hello@zecut.ba,1,UniCredit,Standard,45000,3000,FBH555666,False
+Firm ID,Firm Name,Industry
+101,Espresso,Cafe
+102,Mala Market,Retail
+103,Z&E Cut,Salon
