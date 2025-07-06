@@ -8,10 +8,6 @@ st.set_page_config(page_title="Z&E Live Dashboard", layout="wide")
 st.title("📊 Z&E Live Dashboard for Micro Businesses")
 st.markdown("Automatic data refresh simulation and real-time comparisons")
 
-def main():
-    if st.button("🔄 Refresh Data"):
-        st.experimental_rerun()
-
 # Load firm data
 firms = pd.read_csv("firme.csv")
 st.subheader("📁 Registered Firms")
@@ -70,6 +66,3 @@ for _, row in firms.iterrows():
         st.success(f"✅ {row['Naziv firme']} has strong historical performance. Consider price increase.")
     else:
         st.info(f"ℹ️ {row['Naziv firme']} is performing within expected range.")
-
-if __name__ == "__main__":
-    main()
