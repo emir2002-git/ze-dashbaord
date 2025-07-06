@@ -103,14 +103,14 @@ Provide 4–6 actionable bullet-point recommendations to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role":"system", "content":"You are a helpful business advisor."},
-                {"role":"user",   "content":prompt}
-            ],
-            temperature=0.7,
-            max_tokens=250
-        )
-        advice = response.choices[0].message.content
-        st.markdown(advice)
+        resp = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[
+        {"role":"system","content":"You are a helpful business advisor."},
+        {"role":"user","content":prompt}
+    ],
+    temperature=0.7,
+    max_tokens=250
+)
+advice = resp.choices[0].message.content
+st.markdown(advice)
