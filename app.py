@@ -7,7 +7,7 @@ import openai
 from openai import OpenAI
 
 # ── OpenAI client ───────────────────────────────────────────────────────────────
-client = OpenAI(api_key=st.secrets["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"])
+client = OpenAI(api_key=st.secrets["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"])
 
 # ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
