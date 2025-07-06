@@ -1,6 +1,8 @@
 
 import streamlit as st
 import pandas as pd
+import io
+
 
 st.set_page_config(page_title="Z&E Business Assistant", layout="wide")
 st.title("📊 Z&E Dashboard for Micro Businesses")
