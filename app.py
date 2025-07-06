@@ -9,8 +9,8 @@ import requests
 import io
 import os
 # ── LIVE DATA SOURCES ────────────────────────────────
-FIRMES_CSV_URL = "https://…/export?format=csv&gid=0"
-POS_CSV_URL    = "https://…/export?format=csv&gid=0"
+FIRMES_CSV_URL = "https://raw.githubusercontent.com/emir2002-git/ze-dashboard/main/firme.csv"
+POS_CSV_URL    = "https://raw.githubusercontent.com/emir2002-git/ze-dashboard/main/pos.csv"
 
 
 # Show when this run happened:
