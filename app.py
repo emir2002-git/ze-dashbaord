@@ -4,14 +4,11 @@ import datetime
 import plotly.express as px
 import requests
 from streamlit_autorefresh import st_autorefresh
+import openai
 
 # ── YOUR OPENAI KEY ───────────────────────────────────────────────────────────────
 # Replace this string with your full key (all on one line)
-OPENAI_KEY = "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"
-HEADERS = {
-    "Authorization": f"Bearer {OPENAI_KEY}",
-    "Content-Type": "application/json"
-}
+openai.api_key = st.secrets["openai"]["api_key"]
 
 # ── PAGE SETUP & AUTO-REFRESH ─────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
