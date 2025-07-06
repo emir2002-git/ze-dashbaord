@@ -7,20 +7,20 @@ from streamlit_autorefresh import st_autorefresh
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 
 # ── Page config ─────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Z&E Final Dashboard", layout="wide")
-st.title("📊 Z&E Final Dashboard")
+st.set_page_config(page_title="Z&E Auto-Suggestions Dashboard", layout="wide")
+st.title("📊 Z&E Dashboard with Automatic Suggestions")
 st.caption(f"Last refresh: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
 
 # ── Load base tables ────────────────────────────────────────────────────────────
 firms = pd.read_csv("firms_complex.csv")
-pos   = pd.read_csv("pos_complex.csv", parse_dates=["Date"])
+pos = pd.read_csv("pos_complex.csv", parse_dates=["Date"])
 
 # ── Sidebar: Firm filter ────────────────────────────────────────────────────────
 st.sidebar.subheader("Filter by Firm")
 firm_ids = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Choose a Firm ID", ["All"] + firm_ids)
 
-# ── Show raw firms table ────────────────────────────────────────────────────────
+# ── Show firms table ────────────────────────────────────────────────────────────
 st.subheader("📁 Registered Firms")
 if selected == "All":
     st.dataframe(firms, use_container_width=True)
@@ -28,37 +28,28 @@ else:
     st.dataframe(firms[firms["Firm ID"].astype(str) == selected], use_container_width=True)
 
 # ── Compute daily & avg revenue ─────────────────────────────────────────────────
-# 1) daily sums
 daily = (
     pos.groupby(["Firm ID", "Date"])["Revenue (KM)"]
        .sum()
        .reset_index(name="Daily Revenue")
 )
-
-# 2) historical average per firm
 avg = (
     daily.groupby("Firm ID")["Daily Revenue"]
          .mean()
          .reset_index(name="Avg Daily Revenue")
 )
-
-# 3) merge & add firm name
 combined = (
     daily.merge(avg, on="Firm ID")
          .merge(firms[["Firm ID", "Firm Name"]], on="Firm ID")
 )
+combined["Suggestion"] = combined.apply(
+    lambda row: "Below avg – consider promotions or price cuts"
+    if row["Daily Revenue"] < row["Avg Daily Revenue"]
+    else "On track or above avg",
+    axis=1
+)
 
-# 4) generate suggestion
-def make_suggestion(row):
-    return (
-        "Below avg – consider promotions or price cuts"
-        if row["Daily Revenue"] < row["Avg Daily Revenue"]
-        else "On track or above avg"
-    )
-
-combined["Suggestion"] = combined.apply(make_suggestion, axis=1)
-
-# 5) apply sidebar filter
+# ── Apply filter for POS data ───────────────────────────────────────────────────
 if selected != "All":
     combined = combined[combined["Firm ID"].astype(str) == selected]
 
@@ -72,8 +63,13 @@ st.dataframe(
     use_container_width=True
 )
 
-# ── Optional: plot a trend for the selected firm ────────────────────────────────
-if selected != "All":
-    st.subheader(f"📈 Revenue Trend for Firm {selected}")
-    trend = combined[["Date", "Daily Revenue"]].set_index("Date")
-    st.line_chart(trend)
+# ── Automatic System Suggestions ────────────────────────────────────────────────
+st.subheader("🔔 System-Generated Alerts")
+# Show alerts for the most recent date
+latest_date = combined["Date"].max()
+recent = combined[combined["Date"] == latest_date]
+for _, row in recent.iterrows():
+    if "Below avg" in row["Suggestion"]:
+        st.warning(f"{row['Firm Name']} ({row['Date']}): {row['Suggestion']}")
+    else:
+        st.success(f"{row['Firm Name']} ({row['Date']}): {row['Suggestion']}")
