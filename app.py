@@ -3,73 +3,47 @@ import pandas as pd
 import datetime
 from streamlit_autorefresh import st_autorefresh
 
-# ── Auto-refresh every 60 seconds ───────────────────────────────────────────────
+# Auto-refresh every 60 seconds
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 
-# ── Page config ─────────────────────────────────────────────────────────────────
-st.set_page_config(page_title="📊 Z&E Business Dashboard", layout="wide")
-st.title("📊 Z&E Dashboard with Recommendations")
+# Page config
+st.set_page_config(page_title="Z&E AutoAccountant Dashboard", layout="wide")
+st.title("📊 Z&E AutoAccountant Dashboard")
 st.caption(f"Last refresh: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}")
 
-# ── Load data ───────────────────────────────────────────────────────────────────
+# Load data
 firms = pd.read_csv("firms_complex.csv")
-pos   = pd.read_csv("pos_complex.csv", parse_dates=["Date"])
+pos = pd.read_csv("pos_complex.csv", parse_dates=["Date"])
 
-# ── Sidebar: firm filter ────────────────────────────────────────────────────────
+# Sidebar filter
 st.sidebar.subheader("Filter by Firm")
 firm_ids = firms["Firm ID"].astype(str).tolist()
 selected = st.sidebar.selectbox("Choose a Firm ID", ["All"] + firm_ids)
 
-# ── Display firms ───────────────────────────────────────────────────────────────
+# Display firm registry
 st.subheader("📁 Registered Firms")
 if selected == "All":
     st.dataframe(firms, use_container_width=True)
 else:
-    st.dataframe(
-        firms[firms["Firm ID"].astype(str) == selected],
-        use_container_width=True
-    )
+    st.dataframe(firms[firms["Firm ID"].astype(str) == selected], use_container_width=True)
 
-# ── Compute daily & average revenue ─────────────────────────────────────────────
-daily = (
-    pos
-    .groupby(["Firm ID", "Date"])["Revenue (KM)"]
-    .sum()
-    .reset_index(name="Daily Revenue")
-)
-avg = (
-    daily
-    .groupby("Firm ID")["Daily Revenue"]
-    .mean()
-    .reset_index(name="Avg Daily Revenue")
-)
-combined = (
-    daily
-    .merge(avg, on="Firm ID")
-    .merge(
-        firms[["Firm ID","Firm Name","Bank","Package","Account Balance (KM)"]],
-        on="Firm ID",
-        how="left"
-    )
+# Compute daily revenue and average
+daily = pos.groupby(["Firm ID", "Date"])["Revenue (KM)"].sum().reset_index(name="Daily Revenue")
+avg = daily.groupby("Firm ID")["Daily Revenue"].mean().reset_index(name="Avg Daily Revenue")
+combined = daily.merge(avg, on="Firm ID").merge(
+    firms[["Firm ID","Firm Name","Bank","Package","Account Balance (KM)"]],
+    on="Firm ID", how="left"
 )
 
-# ── Filter by selection ─────────────────────────────────────────────────────────
+# Filter combined data
 if selected != "All":
     combined = combined[combined["Firm ID"].astype(str) == selected]
 
-# ── Show combined revenue table ─────────────────────────────────────────────────
+# Show combined table
 st.subheader("🔀 Daily Revenue vs. Average")
-st.dataframe(
-    combined[
-        [
-            "Firm ID", "Firm Name", "Date",
-            "Daily Revenue", "Avg Daily Revenue"
-        ]
-    ],
-    use_container_width=True
-)
+st.dataframe(combined[["Firm ID","Firm Name","Date","Daily Revenue","Avg Daily Revenue"]], use_container_width=True)
 
-# ── Rule-Based Business Recommendations ────────────────────────────────────────
+# System recommendations
 st.subheader("💡 System Recommendations")
 if selected == "All":
     st.info("Select a single firm to see tailored recommendations.")
@@ -80,22 +54,26 @@ else:
     dr = latest["Daily Revenue"]
     ar = latest["Avg Daily Revenue"]
     firm_name = latest["Firm Name"]
-
-    st.markdown(f"### Recommendations for **{firm_name}** on {latest['Date']}")
+    date_str = latest["Date"]
     if dr < ar:
-        st.warning("⚠️ Today's revenue is below average.")
-        st.markdown("""
-- **Run a limited-time promotion** (e.g., “Happy Hour” discounts) to boost traffic.
-- **Raise prices by 3–5%** on best-selling items to improve margins.
-- **Compare banking fees** and consider switching to a lower-cost package.
-- **Optimize staffing**, reducing hours during low-traffic periods to cut costs.
-""")
+        st.warning(f"⚠️ {firm_name} revenue on {date_str} is below average.")
+        st.markdown(
+            "- Run a limited-time promotion to boost sales.
+"
+            "- Consider increasing prices by 3–5% on best-selling items.
+"
+            "- Compare and switch to a lower-cost bank package.
+"
+            "- Optimize staffing in low-traffic periods."
+        )
     else:
-        st.success("✅ Today's revenue meets or exceeds average.")
-        st.markdown("""
-- **Maintain current pricing**, but monitor competitor rates.
-- **Invest in marketing** (social media ads or loyalty programs) to grow further.
-- **Explore premium product lines** with higher margins.
-- **Negotiate with your bank** for loyalty discounts or cashback on transactions.
-""")
-
+        st.success(f"✅ {firm_name} revenue on {date_str} meets or exceeds average.")
+        st.markdown(
+            "- Maintain current pricing, monitor competitor rates.
+"
+            "- Invest in targeted marketing campaigns.
+"
+            "- Explore premium product offerings with higher margins.
+"
+            "- Negotiate with your bank for loyalty discounts."
+        )

@@ -2,10 +2,5 @@ Firm ID,Date,Product,Category,Unit Price (KM),Quantity,Discount (%),Tax Rate (%)
 101,2025-07-01,Coffee,Beverage,2.55,6,0.0,17.0,17.97,Cash
 101,2025-07-01,Espresso,Beverage,2.32,1,0.1,17.0,2.36,Card
 101,2025-07-01,Juice,Beverage,4.18,1,0.2,17.0,3.56,Card
-101,2025-07-01,Tea,Beverage,3.68,7,0.2,17.0,21.89,Cash
-101,2025-07-01,Water,Beverage,3.88,4,0.2,17.0,13.23,Mobile
-101,2025-07-01,Cake,Food,4.17,6,0.0,17.0,29.28,Mobile
-101,2025-07-01,Sandwich,Food,3.00,6,0.1,17.0,16.02,Card
-101,2025-07-01,Muffin,Food,1.69,3,0.1,17.0,4.33,Cash
 102,2025-07-01,Coffee,Beverage,3.10,7,0.0,17.0,25.87,Cash
 102,2025-07-01,Espresso,Beverage,3.04,1,0.2,17.0,2.68,Mobile
