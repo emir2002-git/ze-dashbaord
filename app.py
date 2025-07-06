@@ -73,6 +73,8 @@ st.dataframe(
 st.subheader("💡 System Recommendations")
 if selected == "All":
     st.info("Select a single firm to see tailored recommendations.")
+elif combined.empty:
+    st.warning("No POS data available for this firm to generate recommendations.")
 else:
     latest = combined.sort_values("Date").iloc[-1]
     dr = latest["Daily Revenue"]
@@ -96,3 +98,4 @@ else:
 - **Explore premium product lines** with higher margins.
 - **Negotiate with your bank** for loyalty discounts or cashback on transactions.
 """)
+
