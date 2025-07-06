@@ -4,11 +4,9 @@ import datetime
 import plotly.express as px
 from streamlit_autorefresh import st_autorefresh
 from openai import OpenAI
-from openai.error import InvalidRequestError
 
 # ── OpenAI client ───────────────────────────────────────────────────────────────
-# Instantiates with your key from st.secrets["OPENAI_API_KEY"]
-client = OpenAI()
+client = OpenAI()  # reads OPENAI_API_KEY from st.secrets
 
 # ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
@@ -82,10 +80,10 @@ else:
     elif daily_f.empty:
         st.warning("No sales data available for this firm.")
     else:
-        firm       = firms.loc[firms["Firm ID"] == fid].iloc[0]
-        latest_dt  = daily_f["Date"].max()
-        today_rev  = daily_f[daily_f["Date"] == latest_dt]["Revenue (KM)"].sum()
-        avg_rev    = daily_f.groupby("Date")["Revenue (KM)"].sum().mean()
+        firm      = firms.loc[firms["Firm ID"] == fid].iloc[0]
+        latest_dt = daily_f["Date"].max()
+        today_rev = daily_f[daily_f["Date"] == latest_dt]["Revenue (KM)"].sum()
+        avg_rev   = daily_f.groupby("Date")["Revenue (KM)"].sum().mean()
 
         prompt = f"""
 You are a business consultant AI.
@@ -103,39 +101,37 @@ Provide 4–6 actionable bullet-point recommendations to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
-        # Attempt GPT calls in order, then fallback
+        # Try models in order, fallback on known errors
         for model in ("gpt-3.5-turbo", "gpt-4o-mini"):
             try:
-                resp = client.chat.completions.create(
+                res = client.chat.completions.create(
                     model=model,
                     messages=[
-                        {"role":"system", "content":"You are a helpful business advisor."},
-                        {"role":"user",   "content":prompt}
+                        {"role":"system","content":"You are a helpful business advisor."},
+                        {"role":"user","content":prompt}
                     ],
                     temperature=0.7,
                     max_tokens=250
                 )
-                st.markdown(resp.choices[0].message.content)
+                st.markdown(res.choices[0].message.content)
                 break
-            except InvalidRequestError as e:
-                code = getattr(e, "error", {}).get("code", "").lower()
-                if code in ("model_not_found", "insufficient_quota"):
-                    st.warning(f"{model} unavailable ({code}), trying next model…")
-                    continue
-                st.error(f"OpenAI error ({model}): {e}")
-                break
+
             except Exception as e:
-                st.error(f"Unexpected AI error: {e}")
+                err = str(e).lower()
+                if "model_not_found" in err or "insufficient_quota" in err:
+                    st.warning(f"{model} unavailable ({err.split(':')[0]}), trying next…")
+                    continue
+                st.error(f"AI error ({model}): {e}")
                 break
         else:
-            # Both AI models failed: rule-based fallback
-            st.error("AI unavailable—showing rule-based suggestions.")
+            # All AI attempts failed → rule-based fallback
+            st.error("AI unavailable—showing rule-based advice.")
             if today_rev < avg_rev:
                 st.markdown("""
 1. Launch a limited-time “Happy Hour” on slow items.
 2. Increase prices by 3–5% on best-sellers to boost margins.
-3. Negotiate a lower-fee banking package.
-4. Optimize staffing to match peak hours only.
+3. Negotiate a lower-fee bank package.
+4. Optimize staffing to match peak hours.
 """)
             else:
                 st.markdown("""
