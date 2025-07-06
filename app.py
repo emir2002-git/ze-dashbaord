@@ -7,11 +7,17 @@ import os
 
 # ── Auto-refresh every 60 000 ms (60 seconds) ─────────────────────────────────
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
+from datetime import datetime
+
+# Show when this run happened:
+now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+st.caption(f"Last refresh: {now}")
 
 # ── Page config ────────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E Live Dashboard", layout="wide")
 st.title("📊 Z&E Live Dashboard for Micro Businesses")
 st.markdown("Data refreshes every minute automatically.\n\n")
+
 
 # ── Load Firms ─────────────────────────────────────────────────────────────────
 firms = pd.read_csv("firme.csv")
