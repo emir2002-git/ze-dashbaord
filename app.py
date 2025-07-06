@@ -8,7 +8,7 @@ import os
 
 # ── Auto-refresh every 60 000 ms (60 seconds) ─────────────────────────────────
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
-from datetime import datetime
+
 
 # Show when this run happened:
 now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
