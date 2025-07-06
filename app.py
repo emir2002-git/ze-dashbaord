@@ -2,7 +2,7 @@
 
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
-st_autorefresh(interval=60_000, limit=None, key="auto_refresh)
+st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 import pandas as pd
 import datetime
 import requests
