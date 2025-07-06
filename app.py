@@ -6,6 +6,9 @@ st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 import pandas as pd
 import datetime
 import os
+# ── LIVE DATA SOURCES ────────────────────────────────
+FIRMES_CSV_URL = "https://…/export?format=csv&gid=0"
+POS_CSV_URL    = "https://…/export?format=csv&gid=0"
 
 
 # Show when this run happened:
@@ -19,27 +22,27 @@ st.markdown("Data refreshes every minute automatically.\n\n")
 
 
 # ── Load Firms ─────────────────────────────────────────────────────────────────
-firms = pd.read_csv("firme.csv")
-firms_ts = datetime.datetime.fromtimestamp(os.path.getmtime("firme.csv"))
+firms = pd.read_csv(FIRMES_CSV_URL)
 st.subheader("📁 Registered Firms")
-st.write(f"_Last updated: {firms_ts.strftime('%Y-%m-%d %H:%M:%S')}_")
+st.write(f"_Firms data fetched at: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}_")
 st.dataframe(firms, use_container_width=True)
 
 # ── Load POS Sales (with live upload) ───────────────────────────────────────────
 st.subheader("📥 Upload New POS Data (optional)")
 uploaded = st.file_uploader("Upload a CSV file with POS data", type="csv")
 if uploaded:
+    pos = pd.read_csv(uploaded, parse_dates=["Datum"])
     try:
-        pos = pd.read_csv(uploaded, parse_dates=["Datum"])
+         pos = pd.read_csv(uploaded, parse_dates=["Datum"])
         st.success("✅ New POS data loaded in memory")
     except Exception as e:
         st.error(f"❌ Could not read uploaded file: {e}")
         pos = pd.read_csv("pos.csv", parse_dates=["Datum"])
 else:
-    pos = pd.read_csv("pos.csv", parse_dates=["Datum"])
+    pos = pd.read_csv(POS_CSV_URL, parse_dates=["Datum"])
 
 pos_ts = datetime.datetime.fromtimestamp(os.path.getmtime("pos.csv"))
-st.write(f"_POS file last updated: {pos_ts.strftime('%Y-%m-%d %H:%M:%S')}_")
+st.write(f"_POS data fetched at: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}_")
 st.subheader("🛒 POS Sales Data")
 st.dataframe(pos, use_container_width=True)
 
