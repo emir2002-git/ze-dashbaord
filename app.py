@@ -1,13 +1,11 @@
 
 
 import streamlit as st
-import pandas as pd
 from streamlit_autorefresh import st_autorefresh
+st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
+import pandas as pd
 import datetime
 import os
-
-# ── Auto-refresh every 60 000 ms (60 seconds) ─────────────────────────────────
-st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 
 
 # Show when this run happened:
