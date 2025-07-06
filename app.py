@@ -5,13 +5,15 @@ import plotly.express as px
 import openai
 from streamlit_autorefresh import st_autorefresh
 
-# ── Load OpenAI key from secrets ────────────────────────────────────────────────
-# .streamlit/secrets.toml must contain:
+# ── Load OpenAI key (v0.28.0 style) ─────────────────────────────────────────────
+# In .streamlit/secrets.toml you must have:
+#
 # [openai]
 # api_key = "sk-…your full key…"
-client = openai(api_key=st.secrets["openai"]["api_key"])
+#
+openai.api_key = st.secrets["openai"]["api_key"]
 
-# ── Page setup & auto‐refresh ─────────────────────────────────────────────────────
+# ── Page setup & auto-refresh ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
 st.title("📊 Z&E Dashboard with AI Insights")
@@ -22,7 +24,7 @@ firms   = pd.read_csv("firms_complex.csv")
 monthly = pd.read_csv("monthly_summary.csv")
 daily   = pd.read_csv("pos_daily.csv", parse_dates=["Date"])
 
-# ── Sidebar navigation & firm filter ──────────────────────────────────────────────
+# ── Sidebar nav & firm select ─────────────────────────────────────────────────────
 st.sidebar.title("Navigation")
 page     = st.sidebar.radio("Go to", ["🏠 Overview", "📈 Monthly Trend", "🛒 Daily Sales", "💡 AI Insights"])
 st.sidebar.markdown("---")
@@ -35,8 +37,8 @@ if selected == "All":
     mf, df = monthly.copy(), daily.copy()
 else:
     fid = int(selected)
-    mf    = monthly[monthly["Firm ID"] == fid].copy()
-    df    = daily[daily["Firm ID"]   == fid].copy()
+    mf = monthly[monthly["Firm ID"] == fid].copy()
+    df = daily[daily["Firm ID"] == fid].copy()
 
 # ── 🏠 Overview ───────────────────────────────────────────────────────────────────
 if page == "🏠 Overview":
@@ -66,7 +68,8 @@ elif page == "🛒 Daily Sales":
     st.header("🛒 Daily Sales by Product (Last 30 days)")
     summary = (
         df.groupby("Product")[["Quantity","Revenue (KM)"]]
-          .sum().reset_index()
+          .sum()
+          .reset_index()
     )
     summary["Revenue (KM)"] = summary["Revenue (KM)"].round(2)
     st.dataframe(summary, use_container_width=True)
@@ -81,13 +84,13 @@ else:
     elif df.empty:
         st.warning("No POS data for this firm.")
     else:
-        # Build prompt context
         firm      = firms[firms["Firm ID"] == fid].iloc[0]
         last_date = df["Date"].max()
         today_rev = df[df["Date"] == last_date]["Revenue (KM)"].sum()
         avg_rev   = df.groupby("Date")["Revenue (KM)"].sum().mean()
 
-        prompt = f"""You are an expert business consultant AI.
+        prompt = f"""
+You are an expert business consultant AI.
 Company: {firm['Firm Name']}
 Industry: {firm['Industry']}
 Bank & Package: {firm['Bank']} / {firm['Package']}
@@ -102,16 +105,15 @@ Provide 4–6 actionable bullet-point recommendations to:
 - Improve customer retention (loyalty, upsells)
 """.strip()
 
-        # Call the new v1 OpenAI client
-        resp = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role":"system", "content":"You are a helpful business advisor."},
                 {"role":"user",   "content":prompt}
             ],
             temperature=0.7,
-            max_tokens=250
+            max_tokens=250,
         )
-        advice = resp.choices[0].message.content
+        advice = response.choices[0].message.content
         st.markdown(advice)
 
