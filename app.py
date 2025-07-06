@@ -9,7 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # .streamlit/secrets.toml must contain:
 # [openai]
 # api_key = "sk-…your full key…"
-client = OpenAI(api_key=st.secrets["openai"]["api_key"])
+client = openai(api_key=st.secrets["openai"]["api_key"])
 
 # ── Page setup & auto‐refresh ─────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
