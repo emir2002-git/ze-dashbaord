@@ -30,16 +30,17 @@ st.dataframe(firms, use_container_width=True)
 # ── Load POS Sales (with live upload) ───────────────────────────────────────────
 st.subheader("📥 Upload New POS Data (optional)")
 uploaded = st.file_uploader("Upload a CSV file with POS data", type="csv")
+
 if uploaded:
-    pos = pd.read_csv(uploaded, parse_dates=["Datum"])
     try:
-         pos = pd.read_csv(uploaded, parse_dates=["Datum"])
+        pos = pd.read_csv(uploaded, parse_dates=["Datum"])
         st.success("✅ New POS data loaded in memory")
     except Exception as e:
         st.error(f"❌ Could not read uploaded file: {e}")
-        pos = pd.read_csv("pos.csv", parse_dates=["Datum"])
+        pos = pd.read_csv(POS_CSV_URL, parse_dates=["Datum"])
 else:
     pos = pd.read_csv(POS_CSV_URL, parse_dates=["Datum"])
+
 
 pos_ts = datetime.datetime.fromtimestamp(os.path.getmtime("pos.csv"))
 st.write(f"_POS data fetched at: {datetime.datetime.now():%Y-%m-%d %H:%M:%S}_")
