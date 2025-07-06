@@ -9,8 +9,7 @@ from streamlit_autorefresh import st_autorefresh
 # In .streamlit/secrets.toml:
 # [openai]
 # api_key = "sk-..."
-openai.api_key = st.secrets["openai"]["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"]
-
+openai.api_key = st.secrets["openai"]["api_key"] 
 # ── Auto-refresh & page setup ────────────────────────────────────────────────────
 st.set_page_config(page_title="Z&E AI Dashboard", layout="wide", page_icon="🤖")
 st_autorefresh(interval=60_000, limit=None, key="auto_refresh")
